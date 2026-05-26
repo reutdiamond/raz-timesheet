@@ -207,8 +207,8 @@ table.wk{width:100%;border-collapse:collapse;min-width:500px}
     </div>
   </div>
   <div class="header-right">
-    <button class="btn btn-ghost btn-sm no-print" onclick="window.print()">Print</button>
-    <button class="btn btn-primary btn-sm" id="saveBtn" onclick="doSave(true)">Save</button>
+    <button class="btn btn-ghost btn-sm no-print no-client" onclick="window.print()">Print</button>
+    <button class="btn btn-primary btn-sm no-client" id="saveBtn" onclick="doSave(true)">Save</button>
   </div>
 </header>
 
@@ -239,7 +239,7 @@ table.wk{width:100%;border-collapse:collapse;min-width:500px}
     </div>
   </div>
 
-  <div class="roster-panel">
+  <div class="roster-panel no-client">
     <div class="section-title">Edit Worker Names</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.5rem">Names sync to all devices automatically when you save.</div>
     <div class="roster-grid" id="rosterGrid"></div>
@@ -277,9 +277,9 @@ table.wk{width:100%;border-collapse:collapse;min-width:500px}
   </div>
 
   <div id="tabDaily">
-    <div class="share-bar no-print">
-      <div class="share-text"><strong>Client login:</strong> Share the URL with password <strong>RAZTIME2026</strong> — they'll see live data.</div>
-      <button class="btn btn-outline btn-sm" onclick="exportCSV()">&#8615; Export CSV</button>
+    <div class="share-bar no-print no-client">
+      <div class="share-text"><strong>Client login:</strong> Share the URL with password <strong>TRANSFORM2026</strong> — they'll see live data.</div>
+      <button class="btn btn-outline btn-sm no-client" onclick="exportCSV()">&#8615; Export CSV</button>
     </div>
 
     <div style="margin-bottom:1rem">
@@ -288,16 +288,16 @@ table.wk{width:100%;border-collapse:collapse;min-width:500px}
     </div>
 
     <div class="day-nav">
-      <button class="day-nav-btn no-print" onclick="moveDay(-1)">&#8592;</button>
+      <button class="day-nav-btn no-print no-client" onclick="moveDay(-1)">&#8592;</button>
       <div class="day-nav-info">
         <div class="day-nav-date" id="dayNavDate">—</div>
         <div class="day-nav-badge" id="dayNavBadge">No data</div>
       </div>
-      <button class="day-nav-btn no-print" onclick="moveDay(1)">&#8594;</button>
-      <button class="btn btn-outline btn-sm no-print" onclick="clearDay()" style="margin-left:auto">Clear Day</button>
+      <button class="day-nav-btn no-print no-client" onclick="moveDay(1)">&#8594;</button>
+      <button class="btn btn-outline btn-sm no-print no-client" onclick="clearDay()" style="margin-left:auto">Clear Day</button>
     </div>
 
-    <div class="time-row">
+    <div class="time-row" id="timeRow">
       <div class="time-row-date" id="timeRowDate">—</div>
       <div class="time-row-fields">
         <div class="time-field">
@@ -361,7 +361,9 @@ table.wk{width:100%;border-collapse:collapse;min-width:500px}
 
 <script>
 const SHEET_URL = 'https://script.google.com/macros/s/AKfycbztSt6fcMAqEG2uiJhFPzVc-3U4p5bakS26aQcoVuEStfRTTMkF73iA9uC1hg6k5VEc/exec';
-const PASSWORDS = ['RAZ2026','TRANSFORM2026'];
+const OWNER_PASS = 'RAZ2026';
+const CLIENT_PASS = 'TRANSFORM2026';
+let isClientView = false;
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const ROLES  = ['Worker','Worker','Worker','Worker','Worker','Worker','Worker','Worker','Foreman','Owner'];
@@ -377,9 +379,11 @@ let saveTimer = null;
 /* ── LOGIN ── */
 function doLogin() {
   const v = document.getElementById('pwInput').value.trim().toUpperCase();
-  if (PASSWORDS.includes(v)) {
+  if (v === OWNER_PASS || v === CLIENT_PASS) {
+    isClientView = (v === CLIENT_PASS);
     document.getElementById('loginScreen').style.display = 'none';
     sessionStorage.setItem('rzAuth','1');
+    sessionStorage.setItem('rzRole', isClientView ? 'client' : 'owner');
     showLoading('Loading timesheet...');
     loadFromSheet();
   } else {
@@ -391,6 +395,7 @@ function doLogin() {
 
 window.onload = function() {
   if (sessionStorage.getItem('rzAuth') === '1') {
+    isClientView = sessionStorage.getItem('rzRole') === 'client';
     document.getElementById('loginScreen').style.display = 'none';
     showLoading('Loading timesheet...');
     loadFromSheet();
@@ -406,6 +411,42 @@ function showLoading(msg) {
 function hideLoading() {
   document.getElementById('loadingOverlay').style.display = 'none';
   document.getElementById('appWrap').style.display = 'block';
+  if (isClientView) applyClientView();
+}
+
+function applyClientView() {
+  // Hide all edit controls
+  document.querySelectorAll('.no-client').forEach(el => el.style.display = 'none');
+
+  // Update header
+  document.querySelector('.header-sub').textContent = 'Project Report — View Only';
+
+  // Update sync bar to blue for client
+  const sb = document.getElementById('syncBar');
+  sb.style.background = '#e8f0fe';
+  sb.style.borderColor = '#b3c8f5';
+  document.getElementById('syncDot').style.background = '#4a7fd4';
+  document.getElementById('syncMsg').style.color = '#2c5aa0';
+
+  // Lock time inputs
+  document.getElementById('startTime').readOnly = true;
+  document.getElementById('finishTime').readOnly = true;
+  document.getElementById('startTime').style.background = 'var(--surface-alt)';
+  document.getElementById('finishTime').style.background = 'var(--surface-alt)';
+
+  // Lock notes
+  document.getElementById('dayNotes').readOnly = true;
+  document.getElementById('dayNotes').style.background = 'var(--surface-alt)';
+  document.getElementById('dayNotes').placeholder = '';
+
+  // Lock project end date
+  document.getElementById('projectEnd').readOnly = true;
+
+  // Add client report banner
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:var(--brand);color:#fff;padding:10px 1.25rem;font-size:13px;display:flex;align-items:center;gap:8px;';
+  banner.innerHTML = '<span style="background:var(--accent);color:#1a1a1a;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">CLIENT VIEW</span> This is a live project report. Data is updated by Raz Hauling Services.';
+  document.getElementById('syncBar').after(banner);
 }
 
 /* ── SYNC STATUS ── */
@@ -586,19 +627,35 @@ function renderDay(dt) {
     const rowCls = isFm?'row-foreman':isOwn?'row-owner':'';
     const pill   = isFm?'<span class="role-pill pill-foreman">Foreman</span>':isOwn?'<span class="role-pill pill-owner">Owner</span>':'';
     const pay    = w.onSite ? (w.hours*rate) : 0;
-    tbody.innerHTML += `<tr class="${rowCls}">
-      <td style="color:var(--text-muted);font-size:11px;font-family:'DM Mono',monospace">${i+1}</td>
-      <td style="font-weight:500">${name}${pill}</td>
-      <td style="font-size:12px;color:var(--text-mid)">${role}</td>
-      <td><label class="present-toggle">
-        <input type="checkbox" ${w.onSite?'checked':''} onchange="togglePresent('${dt}',${i},this.checked)"> Present
-      </label></td>
-      <td class="r"><input class="hrs-input" type="number" min="0" max="16" step="0.5"
-        value="${w.hours}" id="h${i}" ${!w.onSite?'disabled':''}
-        onchange="updateHours('${dt}',${i},parseFloat(this.value)||0)"></td>
-      <td style="text-align:right;font-size:12px;color:var(--text-muted)">30 min</td>
-      <td class="pay-cell${!w.onSite?' zero':''}">$${pay.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
-    </tr>`;
+    if (isClientView) {
+      // Client sees read-only report — only show workers who were on site
+      if (!w.onSite) return;
+      tbody.innerHTML += `<tr class="${rowCls}">
+        <td style="color:var(--text-muted);font-size:11px;font-family:'DM Mono',monospace">${i+1}</td>
+        <td style="font-weight:500">${name}${pill}</td>
+        <td style="font-size:12px;color:var(--text-mid)">${role}</td>
+        <td style="text-align:center">
+          <span style="background:var(--surface-brand);color:var(--brand-mid);border:1px solid #b7dfc8;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600">&#10003; On Site</span>
+        </td>
+        <td class="r" style="font-family:'DM Mono',monospace;font-weight:600">${w.hours.toFixed(1)} hrs</td>
+        <td style="text-align:right;font-size:12px;color:var(--text-muted)">30 min</td>
+        <td class="pay-cell">$${pay.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      </tr>`;
+    } else {
+      tbody.innerHTML += `<tr class="${rowCls}">
+        <td style="color:var(--text-muted);font-size:11px;font-family:'DM Mono',monospace">${i+1}</td>
+        <td style="font-weight:500">${name}${pill}</td>
+        <td style="font-size:12px;color:var(--text-mid)">${role}</td>
+        <td><label class="present-toggle">
+          <input type="checkbox" ${w.onSite?'checked':''} onchange="togglePresent('${dt}',${i},this.checked)"> Present
+        </label></td>
+        <td class="r"><input class="hrs-input" type="number" min="0" max="16" step="0.5"
+          value="${w.hours}" id="h${i}" ${!w.onSite?'disabled':''}
+          onchange="updateHours('${dt}',${i},parseFloat(this.value)||0)"></td>
+        <td style="text-align:right;font-size:12px;color:var(--text-muted)">30 min</td>
+        <td class="pay-cell${!w.onSite?' zero':''}">$${pay.toLocaleString('en-US',{minimumFractionDigits:2})}</td>
+      </tr>`;
+    }
   });
 
   document.getElementById('tsFoot').innerHTML = `<tr class="row-total">
